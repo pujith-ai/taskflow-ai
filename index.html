@@ -1,0 +1,286 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskFlow - Productivity Dashboard</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: #f8fafc;
+}
+header {
+  padding: 25px 7%;
+  border-bottom: 1px solid #26334b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+header h1 { margin: 0; color: #818cf8; }
+header span { color: #94a3b8; font-size: 13px; }
+main { max-width: 1050px; margin: 35px auto; padding: 0 20px; }
+.welcome h2 { margin-bottom: 5px; }
+.welcome p { color: #94a3b8; }
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin: 25px 0;
+}
+.stat, .panel {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+}
+.stat small { color: #94a3b8; }
+.stat h2 { font-size: 30px; margin: 10px 0 0; }
+.panel { margin-bottom: 20px; }
+input, select {
+  background: #0f172a;
+  border: 1px solid #475569;
+  color: white;
+  padding: 12px;
+  border-radius: 7px;
+  width: 100%;
+  margin: 7px 0;
+}
+button {
+  background: #6366f1;
+  border: 0;
+  color: white;
+  padding: 11px 16px;
+  border-radius: 7px;
+  cursor: pointer;
+  margin: 5px 3px 5px 0;
+}
+button:hover { background: #4f46e5; }
+button.secondary { background: #334155; }
+button.delete { background: #991b1b; }
+.controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+.controls input, .controls select { flex: 1; min-width: 130px; }
+.task {
+  background: #0f172a;
+  border: 1px solid #334155;
+  padding: 15px;
+  border-radius: 9px;
+  margin: 10px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.task.done .task-name {
+  text-decoration: line-through;
+  color: #64748b;
+}
+.task-name { font-weight: bold; overflow-wrap: anywhere; }
+.meta { color: #94a3b8; font-size: 12px; margin-top: 7px; }
+.actions { display: flex; flex-wrap: wrap; }
+.empty { color: #94a3b8; text-align: center; padding: 25px; }
+footer { text-align: center; color: #64748b; padding: 25px; }
+@media(max-width:600px) {
+  .stats { grid-template-columns: 1fr; }
+  .task { align-items: flex-start; flex-direction: column; }
+  header { padding: 20px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TaskFlow.</h1>
+  <span>YOUR PERSONAL WORKSPACE</span>
+</header>
+
+<main>
+  <section class="welcome">
+    <h2>Welcome back! 👋</h2>
+    <p>Plan your day. Focus on what matters.</p>
+  </section>
+
+  <section class="stats">
+    <div class="stat">
+      <small>Total Tasks</small>
+      <h2 id="total">0</h2>
+    </div>
+    <div class="stat">
+      <small>Completed</small>
+      <h2 id="completed">0</h2>
+    </div>
+    <div class="stat">
+      <small>Remaining</small>
+      <h2 id="remaining">0</h2>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h3>+ Create a new task</h3>
+    <form id="taskForm">
+      <input id="taskInput" placeholder="What do you need to do?" required maxlength="120">
+      <select id="priority">
+        <option value="Low">Low Priority</option>
+        <option value="Medium" selected>Medium Priority</option>
+        <option value="High">High Priority</option>
+      </select>
+      <input id="dueDate" type="date">
+      <button type="submit">Add Task +</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h3>Your Tasks</h3>
+    <div class="controls">
+      <input id="search" placeholder="Search tasks...">
+      <select id="filter">
+        <option value="All">All Tasks</option>
+        <option value="Active">Active</option>
+        <option value="Completed">Completed</option>
+      </select>
+    </div>
+    <div id="taskList"></div>
+  </section>
+</main>
+
+<footer>TaskFlow — Built to help you focus.</footer>
+
+<script>
+const STORAGE_KEY = "taskflow-tasks-v1";
+let tasks = [];
+
+try {
+  tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  if (!Array.isArray(tasks)) tasks = [];
+} catch {
+  tasks = [];
+}
+
+const form = document.getElementById("taskForm");
+const input = document.getElementById("taskInput");
+const priority = document.getElementById("priority");
+const dueDate = document.getElementById("dueDate");
+const taskList = document.getElementById("taskList");
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  render();
+}
+
+form.addEventListener("submit", function(event) {
+  event.preventDefault();
+
+  const name = input.value.trim();
+  if (!name) return;
+
+  tasks.unshift({
+    id: crypto.randomUUID(),
+    name,
+    priority: priority.value,
+    dueDate: dueDate.value,
+    completed: false,
+    createdAt: new Date().toISOString()
+  });
+
+  form.reset();
+  priority.value = "Medium";
+  save();
+});
+
+function toggleTask(id) {
+  tasks = tasks.map(task =>
+    task.id === id
+      ? {...task, completed: !task.completed}
+      : task
+  );
+  save();
+}
+
+function deleteTask(id) {
+  if (!confirm("Delete this task?")) return;
+  tasks = tasks.filter(task => task.id !== id);
+  save();
+}
+
+function render() {
+  const completed = tasks.filter(t => t.completed).length;
+
+  document.getElementById("total").textContent = tasks.length;
+  document.getElementById("completed").textContent = completed;
+  document.getElementById("remaining").textContent = tasks.length - completed;
+
+  const query = document.getElementById("search").value.toLowerCase();
+  const filter = document.getElementById("filter").value;
+
+  const visible = tasks.filter(task => {
+    const matchesSearch = task.name.toLowerCase().includes(query);
+    const matchesFilter =
+      filter === "All" ||
+      (filter === "Active" && !task.completed) ||
+      (filter === "Completed" && task.completed);
+
+    return matchesSearch && matchesFilter;
+  });
+
+  taskList.replaceChildren();
+
+  if (!visible.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = tasks.length
+      ? "No matching tasks found."
+      : "No tasks yet. Add your first task above!";
+    taskList.appendChild(empty);
+    return;
+  }
+
+  visible.forEach(task => {
+    const card = document.createElement("div");
+    card.className = "task" + (task.completed ? " done" : "");
+
+    const details = document.createElement("div");
+    const name = document.createElement("div");
+    name.className = "task-name";
+    name.textContent = task.name;
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = task.priority + " Priority" +
+      (task.dueDate ? " • Due: " + task.dueDate : "");
+
+    details.append(name, meta);
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    const complete = document.createElement("button");
+    complete.className = "secondary";
+    complete.textContent = task.completed ? "Undo" : "Complete";
+    complete.addEventListener("click", () => toggleTask(task.id));
+
+    const remove = document.createElement("button");
+    remove.className = "delete";
+    remove.textContent = "Delete";
+    remove.addEventListener("click", () => deleteTask(task.id));
+
+    actions.append(complete, remove);
+    card.append(details, actions);
+    taskList.appendChild(card);
+  });
+}
+
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("filter").addEventListener("change", render);
+
+render();
+</script>
+</body>
+</html>
