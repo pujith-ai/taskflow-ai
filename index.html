@@ -257,18 +257,42 @@ function render(){
  $(id).addEventListener(id==="search"?"input":"change",render);
 });
 
-const ideas=[
- "Spend 25 minutes learning something new.",
- "Organize your most important tasks.",
- "Complete the smallest pending task first.",
- "Take a short break and plan your next step.",
- "Review your progress for today."
-];
+function getBestTask(){
+  const pending = tasks.filter(t => !t.completed);
 
-$("suggestButton").addEventListener("click",()=>{
- $("suggestion").textContent=ideas[Math.floor(Math.random()*ideas.length)];
+  if (!pending.length) {
+    return "All caught up! You've completed every task. 🎉";
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  function score(task) {
+    let points = {High: 30, Medium: 20, Low: 10}[task.priority] || 0;
+
+    if (task.dueDate) {
+      const due = new Date(task.dueDate + "T00:00:00");
+      const days = Math.round((due - today) / 86400000);
+
+      if (days < 0) points += 40;
+      else if (days === 0) points += 30;
+      else if (days === 1) points += 20;
+      else if (days <= 7) points += 10;
+    }
+
+    return points;
+  }
+
+  pending.sort((a, b) => score(b) - score(a));
+  const best = pending[0];
+
+  return "Recommended next: " + best.name +
+    " (" + best.priority + " priority, " + best.category + ").";
+}
+
+$("suggestButton").addEventListener("click", () => {
+  $("suggestion").textContent = getBestTask();
 });
-
 render();
 </script>
 </body>
